@@ -2,6 +2,9 @@
 Creates yes/no polls and custom polls with up to 10 options. 
 Uses Discord's reactions as votes.
 
+Requires:
+Python 3, discord.py, Google API Python Client, Selenium, and Chromedriver
+
 How to use:
 Yes/No poll
 
