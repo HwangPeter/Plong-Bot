@@ -240,4 +240,4 @@ async def magic8ball(ctx):
 
 
 
-bot.run('MzkzMTYyMzQwMjM0OTUyNzE1.DRxztQ.-lPcVv6LcuvczEAX_4gYYwJGccc')
+bot.run('Token-here')
