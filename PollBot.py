@@ -14,6 +14,14 @@ from oauth2client import client
 from oauth2client import tools
 from oauth2client.file import Storage
 
+from selenium import webdriver
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.by import By
+
+from selenium.webdriver.common.keys import Keys #needed only for pricecheck
+from PIL import Image
+
 bot = commands.Bot(description="Indecisive's slave", command_prefix="!", pm_help = True)
 
 class member(object):
@@ -66,6 +74,7 @@ async def spreadsheet_task():
 	BTA_role_id = "395774727257325568"
 	BTB_role_id = "395784674674475009"
 	update_date = None
+	update_check_delay = 20
 
 
 	while(True):
@@ -135,7 +144,8 @@ async def spreadsheet_task():
 			response_BT2 = request.execute()
 			await add_role(roster, server, BTB_role_id, role, response_BT2)
 
-		await asyncio.sleep(20) #Waits 20 seconds before checking for roster updates
+		await asyncio.sleep(update_check_delay) #Waits 20 seconds before checking for roster updates
+
 
 async def create_roster(response_ign, response_id, server_id):
 	roster = []
@@ -203,6 +213,88 @@ async def on_ready():
 	print('https://discordapp.com/oauth2/authorize?client_id={}&scope=bot&permissions=8'.format(bot.user.id))
 	print('--------')
 
+@bot.command(name = "f2", pass_context = True)
+async def f2(ctx): #TODO: Force window size
+	"""!f2 [username] to receive picture of their f2 profile """
+	if len(ctx.message.content) > len("!f2 "):
+		username = ctx.message.content[len("!f2 "):]
+		if f2_screenshot(username):
+			await bot.send_file(ctx.message.channel, 'f2.png')
+		else:
+			await bot.say("Couldn't find user.")
+	else:
+		await bot.say("Maybe try entering an actual username.")
+
+def f2_screenshot(username):
+	options = webdriver.ChromeOptions()
+	options.add_argument('headless')
+	driver = webdriver.Chrome(chrome_options=options)
+	#driver = webdriver.Chrome()
+	driver.set_window_size(1050,800)
+	url = "http://na-bns.ncsoft.com/ingame/bs/character/profile?c=" + username
+	driver.get(url)
+	try:
+		element = WebDriverWait(driver, 20).until(
+			EC.visibility_of_element_located((By.XPATH, '//*[@id="contents"]')))
+		driver.execute_script("arguments[0].scrollIntoView(true);", element)
+		driver.get_screenshot_as_file("f2.png")
+		driver.quit()
+	except:
+		return False
+	return True
+
+@bot.command(name = "price", pass_context = True)
+async def price(ctx):
+	"""!price [item name] to receive picture of current market price"""
+	if len(ctx.message.content) > len("!price "):
+		item_name = ctx.message.content[len("!price "):]
+		if item_screenshot(item_name):
+			await bot.send_file(ctx.message.channel, 'price.png')
+		else:
+			await bot.say("Couldn't find item.")
+	else:
+		await bot.say("Try entering an actual item.")
+
+	# driver = webdriver.Chrome()
+	# url = "https://bnstree.com/market/na/"
+	# driver.get(url)
+	# try:
+	# 	checkbox = WebDriverWait(driver, 20).until(
+	# 		EC.presence_of_element_located((By.XPATH, '//*[@id="root"]/div/div[1]/div[2]/div/div[2]/div[2]/div[1]/div/div[1]/div[1]/div[1]/label/span[1]/input')))
+	# 	search_box = driver.find_element_by_xpath('//*[@id="root"]/div/div[1]/div[2]/div/div[2]/div[2]/div[1]/div/div[1]/div[1]/div[1]/div/input')
+	# 	checkbox.click()
+	# 	search_box.send_keys(item_name)
+	# 	checkbox = WebDriverWait(driver, 20).until(
+	# 		EC.presence_of_element_located((By.XPATH, '//*[@id="root"]/div/div[1]/div[2]/div/div[2]/div[2]/div[1]/div/div[1]/div[1]/div[2]/a')))
+	# 	search_box.send_keys(Keys.ENTER)
+	# 	try:
+	# 		error = WebDriverWait(driver, 5).until(
+	# 			EC.presence_of_element_located((By.XPATH, '//*[@id="root"]/div/div[1]/div/div/h1')))
+	# 		driver.refresh()
+	# 		item_price = WebDriverWait(driver, 20).until(
+	# 			EC.presence_of_element_located((By.XPATH, '//*[@id="root"]/div/div[1]/div[2]/div/div[2]/div[2]/div[1]/div/div[2]/div/div/div[1]')))
+	# 		driver.set_window_size(600,400)
+	# 		driver.execute_script("arguments[0].scrollIntoView(true);", item_price)
+	# 		driver.get_screenshot_as_file("price.png")
+	# 		crop('price.png', (0,0,800,150), 'price.png')
+	# 	except:
+	# 		return False
+	# 	driver.quit()
+	# except:
+	# 	return False
+	# return True
+
+def crop(image_path, coords, saved_location):
+	"""
+	@param image_path: The path to the image to edit
+	@param coords: A tuple of x/y coordinates (x1, y1, x2, y2)
+	@param saved_location: Path to save the cropped image
+	"""
+	image_obj = Image.open(image_path)
+	cropped_image = image_obj.crop(coords)
+	size = 350, 200
+	cropped_image.thumbnail(size)
+	cropped_image.save(saved_location)
 
 @bot.command(name = "ynpoll", pass_context = True)
 async def ynpoll(ctx):
