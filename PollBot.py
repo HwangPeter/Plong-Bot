@@ -69,21 +69,21 @@ def get_credentials():
 
 async def spreadsheet_task():
 	await bot.wait_until_ready()
-	Indecisive_server_id = "317150426103283712"
+	# Constants that must be changed based on your discord server
+	server_id = "317150426103283712"
 	VT_role_id = "381753872206790659"
 	BTA_role_id = "395774727257325568"
 	BTB_role_id = "395784674674475009"
-	update_date = None
+	# How often you want check if the raid roster has been changed.
 	update_check_delay = 20
+	# The ID of the spreadsheet to retrieve data from.
+	spreadsheet_id = '1O5naOP-Ir--2GjgNsWmAGv-lnDkOz00f5TdHdKsE7_Y'
 
-
+	update_date = None
 	while(True):
 		credentials = get_credentials()
 
 		service = discovery.build('sheets', 'v4', credentials=credentials)
-
-		# The ID of the spreadsheet to retrieve data from.
-		spreadsheet_id = '1O5naOP-Ir--2GjgNsWmAGv-lnDkOz00f5TdHdKsE7_Y'
 
 		# The A1 notation of the values to retrieve.
 		range_ = ''
@@ -114,14 +114,14 @@ async def spreadsheet_task():
 			range_ = 'Clan Roster!I4:I'
 			request = service.spreadsheets().values().get(spreadsheetId=spreadsheet_id, range=range_, valueRenderOption=value_render_option, dateTimeRenderOption=date_time_render_option)
 			response_id = request.execute()
-			roster = await create_roster(response_ign, response_id, Indecisive_server_id)
+			roster = await create_roster(response_ign, response_id, server_id)
 
 
 			#BTA / Saturday Raid
 			range_ = 'BT Weekends!E7:E12' # Party 1
 			request = service.spreadsheets().values().get(spreadsheetId=spreadsheet_id, range=range_, valueRenderOption=value_render_option, dateTimeRenderOption=date_time_render_option)
 			response_BT1 = request.execute()
-			server = bot.get_server(Indecisive_server_id)
+			server = bot.get_server(server_id)
 			role = discord.utils.get(server.roles, id = BTA_role_id)
 			await remove_role(roster, server, BTA_role_id)
 			await add_role(roster, server, BTA_role_id, role, response_BT1)
@@ -203,6 +203,48 @@ async def add_role(roster, server, raid_role_id, role, response_raid):
 	except:
 		pass
 
+async def post_dailies():
+	await bot.wait_until_ready()
+	dailies_channel_id = "370276401615732736"
+	server_id = "317150426103283712"
+	bot_id = "393162340234952715"
+	dailies = [
+	#Sunday
+	"\nTower of Infinity\nSogun's Lament\nNaryu Sanctum\nNaryu Foundry\nMidnight Skypetal Plains\n- - - -\nBeluga Lagoon\n",
+	#Monday
+	"\nCold Storage\nAvalanche Den\nEbondrake Citadel\nDesolate Tomb\n- - - -\nArena Match\nBeluga Lagoon\n",
+	#Tuesday
+	"\nHeaven's Mandate\nSogun's Lament\nLair of the Frozen Fang\nNaryu Foundry\n- - - -\nArena Match\nWhirlwind Valley\n",
+	#Wednesday
+	"\nTower of Infinity\nGloomdross Incursion\nThe Shattered Masts\nDesolate Tomb\n- - - -\nArena Match\nBeluga Lagoon\n",
+	#Thursday
+	"\nCold Storage\nLair of the Frozen Fang\nEbondrake Citadel\nIrontech Forge\n- - - -\nArena Match\nWhirlwind Valley\n",
+	#Friday
+	"\nHeaven's Mandate\nAvalanche Den\nEbondrake Lair\nMidnight Skypetal Plains\n- - - -\nArena Match\nBeluga Lagoon\n",
+	#Saturday
+	"\nLair of the Frozen Fang\nThe Shattered Masts\nIrontech Forge\nMidnight Skypetal Plains\n- - - -\nArena Match\nWhirlwind Valley\n"
+	]
+
+
+	server = bot.get_server(server_id)
+	botto = discord.utils.get(server.members, id = bot_id)
+	dailies_channel = bot.get_channel(dailies_channel_id)
+	dailies_found = False
+
+	async for message in bot.logs_from(dailies_channel, limit = 6): # Checks last 6 messages since it checks for weekday names.
+		if message.author == botto and calendar.day_name[date.today().weekday()] in message.content:
+			dailies_found = True
+			break
+	if dailies_found == False:
+		await bot.send_message(dailies_channel, "📆 **" + str(datetime.datetime.now().month) + "/" + str(datetime.datetime.now().day) + " " + calendar.day_name[date.today().weekday()]+ "**\n" + dailies[int(datetime.datetime.today().strftime('%w'))])
+
+async def scheduler():
+	await bot.wait_until_ready()
+	schedule.every().day.at("00:00").do(bot.loop.create_task,post_dailies())
+	while True:
+		schedule.run_pending()
+		await asyncio.sleep(20)
+
 @bot.event
 async def on_ready():
 	print('Logged in as '+bot.user.name+' (ID:'+bot.user.id+') | Connected to '+str(len(bot.servers))+' servers | Connected to '+str(len(set(bot.get_all_members())))+' users')
@@ -229,8 +271,7 @@ def f2_screenshot(username):
 	options = webdriver.ChromeOptions()
 	options.add_argument('headless')
 	driver = webdriver.Chrome(chrome_options=options)
-	#driver = webdriver.Chrome()
-	driver.set_window_size(1050,800)
+	driver.set_window_size(1050,800) #May need to change depending on native resolution.
 	url = "http://na-bns.ncsoft.com/ingame/bs/character/profile?c=" + username
 	driver.get(url)
 	try:
@@ -292,7 +333,7 @@ def crop(image_path, coords, saved_location):
 	"""
 	image_obj = Image.open(image_path)
 	cropped_image = image_obj.crop(coords)
-	size = 350, 200
+	size = 350, 200 #May need to change depending on native resolution
 	cropped_image.thumbnail(size)
 	cropped_image.save(saved_location)
 
@@ -301,7 +342,6 @@ async def ynpoll(ctx):
 	"""!ynpoll [poll question] to create a simple yes/no poll"""
 	max_wait_time = 1440
 	reactions = ['👍', '👎']
-	# await bot.delete_message(ctx.message)
 
 	if len(ctx.message.content) > len("!ynpoll "):
 		prompt1 = await bot.say("How long do you want the poll to be open? (in minutes) \nEnter 0 to to leave poll open indefinitely.")
@@ -364,7 +404,7 @@ async def post_ynresults(ctx, poll_message, reactions):
 @bot.command(name = "poll", pass_context = True)
 async def poll(ctx):
 	"""!poll [poll question] to create poll with your specified options"""
-	max_options = 10
+	max_options = 10 #Maximum number of options. Can not exceed 10, but can be lowered.
 	max_wait_time = 1440 #Max time for bot to post results. 1440 is 1 day.
 
 	prompt1 = await bot.say("Give me the poll options.")
@@ -536,5 +576,6 @@ async def magic8ball(ctx):
 		await bot.say("Try asking an actual question.")
 
 
-
+bot.loop.create_task(scheduler())
+bot.loop.create_task(spreadsheet_task())
 bot.run('Token-here')
