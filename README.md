@@ -1,7 +1,7 @@
 <p>
 <img src="https://i.imgur.com/ckKb9sb.png" style="width:auto;">
 </p>
-Discord bot written using Discord.py. Features include live market searching, price alerts, poll, and more.
+Discord bot written using Discord.py. Features include live market searching, price alerts, polls, and more.
 
 # Invite Plong Bot to your Discord server!
 https://discordapp.com/oauth2/authorize?client_id=393162340234952715&scope=bot&permissions=8
