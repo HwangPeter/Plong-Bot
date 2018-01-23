@@ -36,7 +36,7 @@ https://discordapp.com/oauth2/authorize?client_id=393162340234952715&scope=bot&p
 !roll [min optional]-[max] - Random number generator. Specify a maximum or a range.
 
 
-# How to use
+# Using Plong Bot
 #### Blade and Soul price commands:
 
 ![price.gif](https://i.imgur.com/fe1dvtz.gif)
