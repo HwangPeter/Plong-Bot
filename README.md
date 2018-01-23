@@ -8,7 +8,7 @@ https://discordapp.com/oauth2/authorize?client_id=393162340234952715&scope=bot&p
 
 
 # Command list
-Blade and Soul related:
+#### Blade and Soul related:
 
 
 !price [item name] - Returns 3 cheapest listings grabbed live from the in-game marketplace.
@@ -18,7 +18,7 @@ Blade and Soul related:
 !dailies - Returns the current day's Blade and Soul daily challenges.
 
 
-Polls:
+#### Polls:
 
 
 !poll [question]- Creates a poll using reactions as votes. Specify up to 10 custom poll options. Allows for timed polls or untimed polls and the ability to check the results of the poll.
@@ -26,7 +26,7 @@ Polls:
 !ynpoll [question]- Creates a yes/no poll using reactions as votes. Allows for timed polls or untimed polls and the ability to check the results of the poll.
 
 
-Random/Etc:
+#### Random/Etc:
 
 
 !8ball - Returns a magic 8 ball answer.
@@ -37,14 +37,14 @@ Random/Etc:
 
 
 # How to use
-Blade and Soul price commands:
+#### Blade and Soul price commands:
 
 ![price.gif](https://i.imgur.com/fe1dvtz.gif)
 
-Yes/No poll:
+#### Yes/No poll:
 
 ![ynpoll.gif](https://i.imgur.com/1yGIP5N.gif)
 
-Custom poll:
+#### Custom poll:
 
 ![poll.gif](https://i.imgur.com/5voxn1h.gif)
