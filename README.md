@@ -7,7 +7,7 @@ Discord bot written using Discord.py. Features include live market searching, pr
 https://discordapp.com/oauth2/authorize?client_id=393162340234952715&scope=bot&permissions=8
 
 
-# Command list:
+# Command list
 Blade and Soul related:
 
 
@@ -36,7 +36,7 @@ Random/Etc:
 !roll [min optional]-[max] - Random number generator. Specify a maximum or a range.
 
 
-# How to use:
+# How to use
 Blade and Soul price commands:
 
 ![price.gif](https://i.imgur.com/fe1dvtz.gif)
