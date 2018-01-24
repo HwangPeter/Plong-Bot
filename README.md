@@ -17,6 +17,8 @@ https://discordapp.com/oauth2/authorize?client_id=393162340234952715&scope=bot&p
 
 !dailies - Returns the current day's Blade and Soul daily challenges.
 
+!f2 [username] - Returns a link to their character profile.
+
 
 #### Polls:
 
