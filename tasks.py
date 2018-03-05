@@ -18,15 +18,20 @@ from datetime import datetime
 import calendar
 import time
 
-import aiohttp # used for
+import aiohttp
 from re import finditer
 import re
 import copy
 
+import pickle #Used for backing up favorites.
 
 #GLOBALS
+favorites_dict = {}
 alert_dict = {}
-cookie = {'private-cookie-params-here'
+cookie = {'commonWebPath':'/web',
+'localWebPath':'/english/web',
+'language':'en', 'GPVLU':'6187d9c913cf5283d676c3e68aea987e42e4e6804b83d5d78598fe035613d53f6d05c48cc001b6ef530b756b44c469c66c11240bb36528624a1a222355efd1d24a1a222355efd1d24a1a222355efd1d24a1a222355efd1d24a1a222355efd1d24a1a222355efd1d24a1a222355efd1d24a1a222355efd1d24a1a222355efd1d24a1a222355efd1d24a1a222355efd1d24a1a222355efd1d24a1a222355efd1d24a1a222355efd1d24a1a222355efd1d2e65c752e0aed4114c1863113b5812c1ec33040840c6f226181e2a8484d1a405133f9f92265f3d85d5b38ec544a8ec704e6c02f49d380d3f86e5e0be669742462e41c10af7941cfa99ad3bf300b8b34db',
+'SessionIndex':'1'
 }
 
 class tasks:
@@ -78,6 +83,20 @@ class tasks:
 				credentials = tools.run(flow, store)
 			print('Storing credentials to ' + credential_path)
 		return credentials
+
+
+	async def get_favorites_dict(self):
+		try: #Lazy way to prevent crashes when favorites_dict.txt hasnt been made yet.
+			with open('favorites_dict.txt', 'rb') as handle:
+				global favorites_dict
+				favorites_dict = pickle.loads(handle.read())
+		except Exception as e:
+			print("Couldnt get favorites_dict")
+			print(e)
+
+	async def backup_favs(self):
+		with open('favorites_dict.txt', 'wb') as backup:
+			pickle.dump(favorites_dict, backup)
 
 	async def scheduled_price_alerts(self):
 		refresh_interval = 60 #Checks every minute
@@ -148,7 +167,6 @@ class tasks:
 
 					alert_dict_copy = copy.deepcopy(alert_dict)
 					for listing in prices:
-						print("Listings are: " + listing[0] + listing[1] + listing[2]) # TODO: RAT?
 						if listing[0] in alert_dict: # If there exist any alerts for this item
 							for alert in alert_dict_copy[listing[0]]:
 								if await self.price_found(alert, listing):
@@ -165,10 +183,10 @@ class tasks:
 
 				elif found == False and "No search results found for" in data:
 					print("No search results found")
-					await self.bot.send_message(owner, "No search results found.")
+					await self.bot.send_message(schlong, "No search results found.")
 				elif found == False and "We apologize for the inconvenience. Please try again later." in data:
 					print("Session ID expired.")
-					await self.bot.send_message(owner, "Can't search marketplace at the moment.")
+					await self.bot.send_message(schlong, "Can't search marketplace at the moment.")
 				else:
 					print("Error: no internet?")
 
@@ -193,9 +211,9 @@ class tasks:
 			else:
 				#Evaluated to False instead of error, which means key exists but has no entries.
 				alert_dict.pop(item_num, None)
-				await tasks.delete_favorite(item_num)
+				await self.delete_favorite(item_num)
 		except KeyError:
-			await tasks.delete_favorite(item_num)
+			await self.delete_favorite(item_num)
 
 	async def get_price(self, price):
 		gold = "00"
@@ -248,7 +266,7 @@ class tasks:
 
 
 	async def spreadsheet_task(self):
-	""" Grabs values from raid rosters on Google Sheets and updates discord roles for their specific raid. """
+		""" Grabs values from raid rosters on Google Sheets and updates discord roles for their specific raid. """
 		server_id = "317150426103283712"
 		VT_role_id = "381753872206790659"
 		BTA_role_id = "395774727257325568"
@@ -356,15 +374,15 @@ class tasks:
 				member = self.make_member(str(entry)[2:-2])
 				roster.append(member)
 				server = self.bot.get_server(server_id)
-				owner = discord.utils.get(server.members, id = '217513859412525057')
-				await self.bot.send_message(owner, "Missing discord ID for " + str(entry))
+				schlong = discord.utils.get(server.members, id = '217513859412525057')
+				await self.bot.send_message(schlong, "Missing discord ID for " + str(entry))
 				index += 1
 			elif index >= len(response_id['values']):
 				member = self.make_member(str(entry)[2:-2])
 				roster.append(member)
 				server = self.bot.get_server(server_id)
-				owner = discord.utils.get(server.members, id = '217513859412525057')
-				await self.bot.send_message(owner, "Missing discord ID for " + str(entry))
+				schlong = discord.utils.get(server.members, id = '217513859412525057')
+				await self.bot.send_message(schlong, "Missing discord ID for " + str(entry))
 				index += 1
 			else:
 				index += 1
@@ -380,8 +398,8 @@ class tasks:
 						if raid_role_id == roles.id:
 							await self.bot.remove_roles(raider, roles)
 				else:
-					owner = discord.utils.get(server.members, id = '217513859412525057')
-					await self.bot.send_message(owner, "Couldn't find " + guildie.ign + " in server. Could have left guild.")
+					schlong = discord.utils.get(server.members, id = '217513859412525057')
+					await self.bot.send_message(schlong, "Couldn't find " + guildie.ign + " in server. Could have left guild.")
 		return True
 
 	async def add_role(self, roster, server, raid_role_id, response_raid):
@@ -399,8 +417,8 @@ class tasks:
 						found = True
 						break
 				if found == False:
-					owner = discord.utils.get(server.members, id = '217513859412525057')
-					await self.bot.send_message(owner, "On the roster, but couldn't add role for " + str(BT) + "Raid ID: " + raid_role_id)
+					schlong = discord.utils.get(server.members, id = '217513859412525057')
+					await self.bot.send_message(schlong, "On the roster, but couldn't add role for " + str(BT) + "Raid ID: " + raid_role_id)
 		except:
 			print("Empty raid roster or response_raid wasn't requested correctly.")
 		return True
@@ -412,42 +430,69 @@ class tasks:
 		bot_id = "393162340234952715"
 		dailies = [
 		#Sunday
-		"\nTower of Infinity\nSogun's Lament\nNaryu Sanctum\nNaryu Foundry\nMidnight Skypetal Plains\n- - - -\nBeluga Lagoon\n",
+		"\nAvalanche Den\nGloomdross Incursion\nNaryu Foundry\nNaryu Sanctum\nHollow's Heart\nDrowning Deeps\nTower of Infinity\nOutlaw Island\nMidnight Skypetal Plains\n",
 		#Monday
-		"\nCold Storage\nAvalanche Den\nEbondrake Citadel\nDesolate Tomb\n- - - -\nArena Match\nBeluga Lagoon\n",
+		"\nGloomdross Incursion\nEbondrake Citadel\nDesolate Tomb\nNaryu Sanctum\nEbondrake Lair\nStarstone Mines\n- - - -\nTag Match\nBeluga Lagoon\n",
 		#Tuesday
-		"\nHeaven's Mandate\nSogun's Lament\nLair of the Frozen Fang\nNaryu Foundry\n- - - -\nArena Match\nWhirlwind Valley\n",
+		"\nCold Storage\nLair of the Frozen Fang\nSogun's Lament\nNaryu Foundry\nIronTech Forge\nHollow's Heart\nTower of Infinity\n- - - -\nOne on One Match\nWhirlwind Valley\n",
 		#Wednesday
-		"\nTower of Infinity\nGloomdross Incursion\nThe Shattered Masts\nDesolate Tomb\n- - - -\nArena Match\nBeluga Lagoon\n",
+		"\nHeaven's Mandate\nAvalanche Den\nThe Shattered Masts\nDesolate Tomb\nNaryu Sanctum\nEbondrake Lair\nOutlaw Island\n- - - -\nTag Match\nNova Core\n",
 		#Thursday
-		"\nCold Storage\nLair of the Frozen Fang\nEbondrake Citadel\nIrontech Forge\n- - - -\nArena Match\nWhirlwind Valley\n",
+		"\nLair of the Frozen Fang\nEbondrake Citadel\nNaryu Foundry\nIrontech Forge\nStarstone Mines\nMushin's Tower 20F\nTower of Infinity\n- - - -\nOne on One Match\nBeluga Lagoon\n",
 		#Friday
-		"\nHeaven's Mandate\nAvalanche Den\nEbondrake Lair\nMidnight Skypetal Plains\n- - - -\nArena Match\nBeluga Lagoon\n",
+		"\nCold Storage\nThe Shattered Masts\nDesolate Tomb\nEbondrake Lair\nHollow's Heart\nDrowning Deeps\nOutlaw Island\n- - - -\nTag Match\nWhirlwind Valley\n",
 		#Saturday
-		"\nLair of the Frozen Fang\nThe Shattered Masts\nIrontech Forge\nMidnight Skypetal Plains\n- - - -\nArena Match\nWhirlwind Valley\n"
+		"\nHeaven's Mandate\nSogun's Lament\nEbondrake Citadel\nIrontech Forge\nStarstone Mines\nMidnight Skypetal Plains\nMushin's Tower 20F\n- - - -\nOne on One Match\nNova Core\n"
+		]
+		img_dailies = [
+		#Sunday
+		"https://i.imgur.com/BtcJZl9.png",
+		#Monday
+		"https://i.imgur.com/pFw6UZ9.png",
+		#Tuesday
+		"https://i.imgur.com/4n1Ru1B.png",
+		#Wednesday
+		"https://i.imgur.com/Iep8Rwq.png",
+		#Thursday
+		"https://i.imgur.com/nuRBu29.png",
+		#Friday
+		"https://i.imgur.com/6S9Opg0.png",
+		#Saturday
+		"https://i.imgur.com/WAfH7Lo.png"
 		]
 
 		server = self.bot.get_server(server_id)
 		botto = discord.utils.get(server.members, id = bot_id)
-
 		dailies_channel = self.bot.get_channel(dailies_channel_id)
 		dailies_found = False
-		async for message in self.bot.logs_from(dailies_channel, limit = 5):
-			if message.author == botto and calendar.day_name[date.today().weekday()] in message.content:
-				dailies_found = True
-				break
+		async for message in self.bot.logs_from(dailies_channel, limit = 6):
+			try:
+				if message.author == botto and calendar.day_name[date.today().weekday()] in message.embeds[0]['fields'][0]['name']:
+					dailies_found = True
+					break
+			except:
+				print("Not an embed.")
 		if dailies_found == False:
-			await self.bot.send_message(dailies_channel, "📆 **" + str(datetime.now().month) + "/" + str(datetime.now().day) + " " + calendar.day_name[date.today().weekday()]+ "**\n")
-			file_name = calendar.day_name[date.today().weekday()] + ".png"
-			await self.bot.send_file(dailies_channel, file_name)
+			link = img_dailies[int(datetime.today().strftime('%w'))]
+			embed = discord.Embed(color=0x4e5f94)
+			#embed.set_image(url = link) #Retired image dailies.
+			embed.add_field(name = "📆 " + str(datetime.now().month) + "/" + str(datetime.now().day) + " " + calendar.day_name[date.today().weekday()] + " Dailies", value = dailies[int(datetime.today().strftime('%w'))], inline=True)
+			try:
+				await self.bot.send_message(ctx.message.channel, embed=embed)
+			except Exception as e:
+				await self.bot.say("I need embed permissions to reply properly.")
+				print("Failed !hello command.")
+				print(e)
+		#await self.bot.send_message(dailies_channel, "📆 **" + str(datetime.now().month) + "/" + str(datetime.now().day) + " " + calendar.day_name[date.today().weekday()]+ "**\n")
+
 
 	async def schedule_dailies(self):
 		check_interval = 25 #25 will check at least twice per minute
 		one_day_minus_two_min = 86280
-		post_time = "00:00"
+		post_time = "04:00"
 
+		await self.post_dailies()
 		while True:
-			await self.post_dailies()
 			now = datetime.now().strftime('%H:%M')
 			if now == post_time:
 				await self.post_dailies()
@@ -460,7 +505,7 @@ class tasks:
 		refresh_interval = 1800 # Refreshes every half hour
 		server_id = "317150426103283712"
 		server = discord.utils.get(self.bot.servers, id = server_id)
-		owner = discord.utils.get(server.members, id = '217513859412525057')
+		schlong = discord.utils.get(server.members, id = '217513859412525057')
 		numbering = ["<:1_:403077593513066496>", "<:2_:403077593273991170>", "<:3_:403077593198362627>"]
 
 		URL = "http://na-bnsmarket.ncsoft.com/bns/bidder/home.web?npc=false"
@@ -519,13 +564,13 @@ class tasks:
 				image_url = re.search('iconImg" src="(.*)" alt="', data)
 				embed = discord.Embed(color=0x72eab0)
 				embed.add_field(name="Listings", value=prices, inline=True)
-				await self.bot.send_message(owner, embed=embed)
+				await self.bot.send_message(schlong, embed=embed)
 			elif found == False and "No search results found for" in data:
 				print("No search results found") # change to found for "item"
-				await self.bot.send_message(owner, "No search results found.")
+				await self.bot.send_message(schlong, "No search results found.")
 			elif found == False and "We apologize for the inconvenience. Please try again later." in data:
 				print("Session ID expired.")
-				await self.bot.send_message(owner, "Can't search marketplace at the moment.")
+				await self.bot.send_message(schlong, "Can't search marketplace at the moment.")
 			else:
 				print("Error: no internet?")
 
@@ -591,11 +636,12 @@ class tasks:
 
 
 	async def on_ready(self):
+		self.bot.loop.create_task(self.get_favorites_dict())
 		self.bot.loop.create_task(self.scheduled_price_alerts())
 		self.bot.loop.create_task(self.schedule_session_refresh())
 		self.bot.loop.create_task(self.spreadsheet_task())
 		self.bot.loop.create_task(self.sonny_emotes())
-		#self.bot.loop.create_task(schedule_dailies())
+		self.bot.loop.create_task(self.schedule_dailies())
 
 def setup(bot):
 	bot.add_cog(tasks(bot))

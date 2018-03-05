@@ -22,36 +22,277 @@ class commands:
 	def __init__(self, bot):
 		self.bot = bot
 
-	# BOT COMMANDS START HERE #
-	###########################
-	@commands.command(aliases = ["hi", "hey"], pass_context = True)
+
+	@commands.command(aliases = ["favorite"], pass_context = True)
+	async def favorites(self, ctx):
+		""" !favorites to see or manage a live list of multiple items and their marketprice. """
+		server_id = "392806051507994624"
+		server = self.bot.get_server(server_id)
+		options = []
+		for emoji in server.emojis:
+			if emoji.id == "406676748718047254":
+				options.insert(0, emoji)
+			elif emoji.id == "406676748974030858":
+				options.insert(1, emoji)
+
+		await self.post_menu(ctx, options)
+
+	async def post_menu(self, ctx, options):
+		numbering = ["<:1_:403077593513066496>", "<:2_:403077593273991170>", "<:3_:403077593198362627>", "<:4_:403107211779244032>", "<:5_:403107211779506186>"]
+		options.append('🆑')
+		responses = ["What item would you like to add to your favorites?", "What items would you like to remove from your favorites? Enter the numbers or names separated by commas.", "Are you sure you want to clear all favorites? (y/n)"]
+		timeout = 60
+		embed = discord.Embed(color = 0x72eab0)
+		server_id = "392806051507994624"
+
+		try:
+			if tasks.favorites_dict[ctx.message.author.id]:
+				fav_list = ""
+				matches = 1
+				for index, value in enumerate(tasks.favorites_dict[ctx.message.author.id]):
+					data = await self.send_request(value)
+					price, found = await self.get_price_info(data, numbering, matches)
+					price = price.replace(numbering[0], "")
+					if found == False:
+						price = " **No listings available**\n"
+					fav_list = ''.join([fav_list, numbering[index], "{}".format(value), price])
+				embed.add_field(name = "Favorites", value = fav_list + "\nMake changes to your list:")
+			else:
+				embed.add_field(name = "Favorites", value = "*Your favorites list is empty.* \n\nMake changes to your list:")
+		except KeyError:
+			print("KeyError, no favorites for user.")
+			embed.add_field(name = "Favorites", value = "*Your favorites list is empty.* \n\nMake changes to your list:")
+		try:
+			menu = await self.bot.send_message(ctx.message.channel, embed=embed)
+		except Exception as e:
+			await self.bot.say("I need embed permissions to reply properly.")
+			print("Failed !favorites command.")
+			print(e)
+			return
+		for reaction in options:
+			await self.bot.add_reaction(menu, reaction)
+		user_react = await self.bot.wait_for_reaction(emoji = options, timeout = timeout, message = menu, user = ctx.message.author)
+		if user_react:
+			index = options.index(user_react.reaction.emoji)
+
+			if index == 0: #Add favorite
+				try:
+					if len(tasks.favorites_dict[ctx.message.author.id]) == 5:
+						await self.bot.say("Sorry, you can't add any more favorites. Max is 5.")
+						await self.post_menu(ctx, options)
+						return
+				except KeyError:
+					pass
+				await self.bot.say(responses[index])
+				item_msg = await self.bot.wait_for_message(timeout = timeout, author = ctx.message.author)
+				if item_msg:
+					item_name = item_msg.content.casefold()
+					try:
+						if item_name in tasks.favorites_dict[ctx.message.author.id]:
+							await self.bot.say("That item is already in your favorites.")
+							await self.post_menu(ctx, options)
+							return
+					except KeyError:
+						pass
+					await self.user_add_fav(item_name, ctx)
+					await self.post_menu(ctx, options)
+					return
+				else:
+					await self.bot.say("<:feelsRage:329995595857264640> I don't have all day.")
+					await tasks.tasks.backup_favs(tasks.tasks)
+
+			elif index == 1:#Delete favorite
+				try:#A check to make sure user has favorites to delete.
+					if tasks.favorites_dict[ctx.message.author.id]:
+						pass
+					else: #Evaluated to false instead of error, which means they exist in dict but don't have any favorites.
+						await self.bot.say("You don't have any favorites.")
+						await self.post_menu(ctx, options)
+						return
+				except KeyError:
+					await self.bot.say("You don't have any favorites.")
+					print("KeyError removing favorites.")
+					await self.post_menu(ctx, options)
+					return
+				await self.bot.say(responses[index])
+				item_msg = await self.bot.wait_for_message(timeout = timeout, author = ctx.message.author)
+				if item_msg:
+					delete_items = await self.get_favs(item_msg, ctx)
+					deleted = ""
+					if len(delete_items) > 1:
+						for item in delete_items:
+							try:
+								tasks.favorites_dict[ctx.message.author.id].remove(item)
+								deleted += "``" + item + "`` "
+							except Exception as e:
+								print("Failed to remove user favorite.")
+								print(e)
+					else:
+						try:
+							for item in delete_items:
+								tasks.favorites_dict[ctx.message.author.id].remove(item)
+								deleted = item + " "
+						except Exception as e:
+							print("Failed to remove user favorite.")
+							print(e)
+					if deleted:
+						await self.bot.say("Okay, I've deleted " + deleted + "from your favorites.")
+						await self.post_menu(ctx, options)
+						return
+					else:
+						await self.bot.say("That's not in your favorites.")
+						await self.post_menu(ctx, options)
+						return
+				else:
+					await self.bot.say("<:feelsRage:329995595857264640> I don't have all day.")
+					await tasks.tasks.backup_favs(tasks.tasks)
+
+			elif index == 2:#Clear all favorites
+				await self.bot.say(responses[index])
+				while True:
+					ans = await self.bot.wait_for_message(timeout = timeout, author = ctx.message.author)
+					if ans is None:
+						await self.bot.say("<:feelsRage:329995595857264640> I don't have all day.")
+						await tasks.tasks.backup_favs(tasks.tasks)
+						return
+					elif "y" in ans.content.casefold():
+						try:
+							tasks.favorites_dict.pop(ctx.message.author.id)
+							await self.bot.say("Okay, your favorites have been cleared.")
+							await self.post_menu(ctx, options)
+							return
+						except Exception as e:
+							await self.bot.say("Something went wrong. I don't think you have any favorites to clear.")
+							print("Failed to clear all favorites. Most likely has no favorites.")
+							print(e)
+							await self.post_menu(ctx, options)
+							return
+					elif "n" in ans.content.casefold():
+						await self.bot.say("Okay, I've left your favorites as they are.")
+						await self.post_menu(ctx, options)
+						return
+					else:
+						await self.bot.say("Not sure what you mean. Do you want me to clear all your favorites?")
+			else:
+				await self.bot.say("That's not an option.")
+		else:
+			menu = await self.bot.get_message(ctx.message.channel, menu.id)
+			for reaction in menu.reactions:
+				await self.bot.remove_reaction(menu, reaction.emoji, menu.server.me)
+			value = menu.embeds[0]["fields"][0]["value"].replace("\nMake changes to your list:", "")
+			embed.set_field_at(0, name = "Favorites", value = value)
+			await self.bot.edit_message(menu, embed = embed)
+			await tasks.tasks.backup_favs(tasks.tasks)
+			return
+
+	async def user_add_fav(self, item_name, ctx):
+		""" Looks up item in marketplace to find listings. If any listings exist, item is added to user's favorites and added to Google Sheet backup."""
+		data = await self.send_request(item_name)
+		if "topPrice" in data:
+			tasks.favorites_dict.setdefault(ctx.message.author.id, []).append((item_name))
+			await self.bot.say("Okay, " + item_name + " has been added to your favorites.")
+		else:
+			await self.bot.say("Sorry, couldn't find that item.")
+
+	async def get_favs(self, item_msg, ctx):
+		""" Takes user's desired favorites answer and returns a list object containing each favorite. """
+		favorites = []
+		content = item_msg.content.casefold()
+		pos_end = content.find(',')
+		pos_start = 0
+		if pos_end == -1:
+			favorite = content.strip()
+			favorites.append(content)
+		else: # more than 1 fav
+			while pos_end != -1 and pos_end != 0:
+				fav = content[pos_start:pos_end].strip()
+				favorites.append(fav)
+				content = content[pos_end+1:]
+				pos_end = content.find(',')
+			if content:
+				fav = content.strip()
+				favorites.append(fav)
+
+		#Translates numbers from prompt into their respective fav.
+		index = 0
+		favorites_copy = list(favorites)
+		for fav in favorites_copy:
+			if fav.isdigit():
+				try:
+					favorites[index] = tasks.favorites_dict[ctx.message.author.id][int(fav)-1]
+					index += 1
+				except IndexError:
+					del favorites[index]
+			else:
+				index += 1
+		favorites = list(dict.fromkeys(favorites)) #Deletes duplicates and maintains order.
+		return favorites
+
+
+
+	@commands.command(aliases = ["hi", "hey", "sup", "plong"], pass_context = True)
 	async def hello(self, ctx):
+		"""!hello to say hi to Plong. """
 		embed = discord.Embed(color=0x4e5f94)
 		embed.set_image(url = "https://i.imgur.com/6pyIpUT.png")
 		embed.add_field(name = "Hi.", value = "Dis me.", inline=True)
-		await self.bot.send_message(ctx.message.channel, embed=embed)
+		try:
+			await self.bot.send_message(ctx.message.channel, embed=embed)
+		except Exception as e:
+			await self.bot.say("I need embed permissions to reply properly.")
+			print("Failed !hello command.")
+			print(e)
 
 	@commands.command(aliases = ["3box", "dailychallenges", "DC"], pass_context = True)
 	async def dailies(self, ctx):
 		""" !dailies to receive list of today's Blade and Soul daily challenges."""
 		dailies = [
 		#Sunday
-		"\nTower of Infinity\nOutlaw Island\nSogun's Lament\nNaryu Foundry\nGloomdross Incursion\nHollow's Heart\nNaryu Sanctum\nMidnight Skypetal Plains\n- - - -\nBeluga Lagoon\n",
+		"\nAvalanche Den\nGloomdross Incursion\nNaryu Foundry\nNaryu Sanctum\nHollow's Heart\nDrowning Deeps\nTower of Infinity\nOutlaw Island\nMidnight Skypetal Plains\n",
 		#Monday
-		"\nMushin's Tower (15)\nCold Storage\nAvalanche Den\nStarstone Mines\nEbondrake Citadel\nDesolate Tomb\nEbondrake Lair\n- - - -\nArena Match\nBeluga Lagoon\n",
+		"\nGloomdross Incursion\nEbondrake Citadel\nDesolate Tomb\nNaryu Sanctum\nEbondrake Lair\nStarstone Mines\n- - - -\nTag Match\nBeluga Lagoon\n",
 		#Tuesday
-		"\nMushin's Tower (20)\nHeaven's Mandate\nSogun's Lament\nLair of the Frozen Fang\nNaryu Foundry\nHollow's Heart\nIrontech Forge\n- - - -\nArena Match\nWhirlwind Valley\n",
+		"\nCold Storage\nLair of the Frozen Fang\nSogun's Lament\nNaryu Foundry\nIronTech Forge\nHollow's Heart\nTower of Infinity\n- - - -\nOne on One Match\nWhirlwind Valley\n",
 		#Wednesday
-		"\nOutlaw Island\nTower of Infinity\nGloomdross Incursion\nThe Shattered Masts\nDesolate Tomb\nEbondrake Lair\nNaryu Sanctum\n- - - -\nArena Match\nBeluga Lagoon\n",
+		"\nHeaven's Mandate\nAvalanche Den\nThe Shattered Masts\nDesolate Tomb\nNaryu Sanctum\nEbondrake Lair\nOutlaw Island\n- - - -\nTag Match\nNova Core\n",
 		#Thursday
-		"\nMushin's Tower (15)\nCold Storage\nLair of the Frozen Fang\nStarstone Mines\nEbondrake Citadel\nIrontech Forge\nNaryu Foundry\n- - - -\nArena Match\nWhirlwind Valley\n",
+		"\nLair of the Frozen Fang\nEbondrake Citadel\nNaryu Foundry\nIrontech Forge\nStarstone Mines\nMushin's Tower 20F\nTower of Infinity\n- - - -\nOne on One Match\nBeluga Lagoon\n",
 		#Friday
-		"\nMushin's Tower (20)\nHeaven's Mandate\nAvalanche Den\nHollow's Heart\nEbondrake Lair\nNaryu Sanctum\nMidnight Skypetal Plains\n- - - -\nArena Match\nBeluga Lagoon\n",
+		"\nCold Storage\nThe Shattered Masts\nDesolate Tomb\nEbondrake Lair\nHollow's Heart\nDrowning Deeps\nOutlaw Island\n- - - -\nTag Match\nWhirlwind Valley\n",
 		#Saturday
-		"\nTower of Infinity\nLair of the Frozen Fang\nThe Shattered Masts\nDesolate Tomb\nStarstone Mines\nIrontech Forge\nMidnight Skypetal Plains\n- - - -\nArena Match\nWhirlwind Valley\n"
+		"\nHeaven's Mandate\nSogun's Lament\nEbondrake Citadel\nIrontech Forge\nStarstone Mines\nMidnight Skypetal Plains\nMushin's Tower 20F\n- - - -\nOne on One Match\nNova Core\n"
+		]
+		img_dailies = [
+		#Sunday
+		"https://i.imgur.com/BtcJZl9.png",
+		#Monday
+		"https://i.imgur.com/pFw6UZ9.png",
+		#Tuesday
+		"https://i.imgur.com/4n1Ru1B.png",
+		#Wednesday
+		"https://i.imgur.com/Iep8Rwq.png",
+		#Thursday
+		"https://i.imgur.com/nuRBu29.png",
+		#Friday
+		"https://i.imgur.com/6S9Opg0.png",
+		#Saturday
+		"https://i.imgur.com/WAfH7Lo.png"
 		]
 
-		await self.bot.say("📆 **" + str(datetime.now().month) + "/" + str(datetime.now().day) + " " + calendar.day_name[date.today().weekday()]+ "**\n" + dailies[int(datetime.today().strftime('%w'))])
+		link = img_dailies[int(datetime.today().strftime('%w'))]
+		embed = discord.Embed(color=0x4e5f94)
+		#embed.set_image(url = link) #Retired image dailies.
+		embed.add_field(name = "📆 " + str(datetime.now().month) + "/" + str(datetime.now().day) + " " + calendar.day_name[date.today().weekday()] + " Dailies", value = dailies[int(datetime.today().strftime('%w'))], inline=True)
+		try:
+			await self.bot.send_message(ctx.message.channel, embed=embed)
+		except Exception as e:
+			await self.bot.say("I need embed permissions to reply properly.")
+			print("Failed !hello command.")
+			print(e)
+
+		#Retired text version of dailies.
+		#await self.bot.send_message(ctx.message.channel, "📆 **" + str(datetime.now().month) + "/" + str(datetime.now().day) + " " + calendar.day_name[date.today().weekday()]+ "**\n")
+		#await self.bot.say("📆 **" + str(datetime.now().month) + "/" + str(datetime.now().day) + " " + calendar.day_name[date.today().weekday()]+ "**\n" + dailies[int(datetime.today().strftime('%w'))])
 
 
 
@@ -62,6 +303,7 @@ class commands:
 		fish_id = "358344958836736000"
 		mod_id = "212404022697656321"
 		reactions = ['🐠', '🐟', '👢', '🤷']
+		timeout = 1440
 
 		server = self.bot.get_server(server_id)
 		mod = discord.utils.get(server.members, id = mod_id)
@@ -86,7 +328,7 @@ class commands:
 				poll_msg = await self.bot.say(fish + ' - Cast your vote:\n')
 				for reaction in reactions:
 					await self.bot.add_reaction(poll_msg, reaction)
-				message = await self.bot.wait_for_message(timeout = 1440, author = mod, channel = ctx.message.channel) # 1440 is one day
+				message = await self.bot.wait_for_message(timeout = timeout, author = mod, channel = ctx.message.channel) # 1440 is one day
 				while True:
 					if "done" in message.content.casefold():
 						try:
@@ -96,7 +338,7 @@ class commands:
 							print(e)
 						break
 					else:
-						message = await self.bot.wait_for_message(timeout = 1440, author = mod, channel = ctx.message.channel) # 1440 is one day
+						message = await self.bot.wait_for_message(timeout = timeout, author = mod, channel = ctx.message.channel) # 1440 is one day
 
 			await self.bot.say("<:feelsWow:370363135384879104> That concludes this fishbowl round.")
 		else:
@@ -104,11 +346,11 @@ class commands:
 
 	@commands.command(pass_context = True)
 	async def pricealert(self, ctx, *, content : str = None):
-		""" !pricealert [item name], higher or lower than [price] to be notified when any listings are found. Checks every minute for 4 hours or until found. """
+		""" !pricealert [item name], [higher or lower] than [price] to be notified when any listings are found. Checks every minute for 4 hours or until found. """
 		alert_duration = 14400 #How long it will continue to price check their item. 4 hours by default.
 		if content:
 			try:
-				item_name = content[:content.index(",")].strip()
+				item_name = content[:content.index(",")].strip().replace("'", "")
 				if not item_name:
 					await self.bot.say("You need to specify what item you want me to look for.")
 					return
@@ -124,9 +366,9 @@ class commands:
 			if "topPrice" in data:
 				# Checking if they want to check above or below their set price.
 				lower_than = True
-				if "high" in price: # Notification for set price or higher
+				if "high" in price or "more" in price: # Notification for set price or higher
 					lower_than = False
-				elif "low" in price:
+				elif "low" in price or "less" in price:
 					pass
 				else:
 					await self.bot.say("Sorry, not sure what you mean. Please specify if you want me to look for listings higher or lower than your price.")
@@ -156,7 +398,7 @@ class commands:
 					print("Already removed from dict")
 					print(e)
 				#Removes key from dict if user has no other pricealerts active.
-				await tasks.validate_dict(item_num)
+				await tasks.tasks.validate_dict(tasks.tasks, item_num)
 			else:
 				await self.bot.say("Sorry, I couldn't find that item.")
 
@@ -164,12 +406,19 @@ class commands:
 			await self.bot.say("Ya dun goofed.")
 
 
-	@commands.command(alises = ["profile"], pass_context = True, hidden=True)
+	@commands.command(alises = ["profile"], pass_context = True)
 	async def f2(self, ctx, *, username : str = None):
-		"""!f2 [username] to receive picture of their f2 profile """
+		"""!f2 [username] to receive a link to their f2 profile. """
 		if username:
+			server_id = "317150426103283712"
+			server = self.bot.get_server(server_id)
 			username = username.replace(" ", "+")
-			await self.bot.say("🔗 http://na-bns.ncsoft.com/ingame/bs/character/profile?c=" + username)
+			if ctx.message.server == server:
+				await self.bot.say("🔗 http://na-bns.ncsoft.com/ingame/bs/character/profile?c=" + username)
+				await self.bot.say("🔗 http://na-bns.ncsoft.com/ingame/bs/character/profile?c=ginxo")
+				await self.bot.send_file(ctx.message.channel, "ginxo.png")
+			else:
+				await self.bot.say("🔗 http://na-bns.ncsoft.com/ingame/bs/character/profile?c=" + username)
 		else:
 			await self.bot.say("Maybe try entering an actual username.")
 
@@ -179,16 +428,23 @@ class commands:
 		""" !price [item] to receive live market listings of that item. """
 		if item_name:
 			numbering = ["<:1_:403077593513066496>", "<:2_:403077593273991170>", "<:3_:403077593198362627>"]
+			item_name = item_name.replace("'", "")
 			data = await self.send_request(item_name)
 			found = False
-			prices, found = await self.get_price_info(data, numbering)
+			matches = 3
+			prices, found = await self.get_price_info(data, numbering, matches)
 
 			if prices:
 				image_url = re.search('iconImg" src="(.*)" alt="', data)
 				embed = discord.Embed(color=0x72eab0)
 				embed.set_thumbnail(url=image_url.group(1))
 				embed.add_field(name="Listings for " + ctx.message.content[len("!price "):], value=prices, inline=True)
-				await self.bot.send_message(ctx.message.channel, embed=embed)
+				try:
+					await self.bot.send_message(ctx.message.channel, embed=embed)
+				except Exception as e:
+					await self.bot.say("I need embed permissions to post price listings.")
+					print("Failed to send price for !price command.")
+					print(e)
 			elif found == False and "No search results found for" in data:
 				print("No search results found for " + item_name) # change to found for "item"
 				await self.bot.say("No search results found for **" + item_name + "**.")
@@ -215,7 +471,7 @@ class commands:
 			return ""
 		return data
 
-	async def get_price_info(self, data, numbering):
+	async def get_price_info(self, data, numbering, matches):
 		found = False
 		prices = ""
 		if "topPrice" in data:
@@ -226,7 +482,7 @@ class commands:
 
 			index = 0
 			for match in finditer('","topPrice"', data):
-				if index > 2:
+				if index > matches - 1:
 					break
 				pos_end = match.span()[0]
 				pos_start = pos_end - 1
@@ -269,7 +525,7 @@ class commands:
 	@commands.command(alises = ["ynpoll", "yesnopoll", "nypoll", "noyespoll"], pass_context = True)
 	async def ynpoll(self, ctx, *, question : str = None):
 		"""!ynpoll [poll question] to create a simple yes/no poll"""
-		max_wait_time = 1440
+		max_wait_time = 86400
 		reactions = ['👍', '👎']
 
 		if question:
@@ -352,7 +608,7 @@ class commands:
 		"""!poll [poll question] to create poll with your specified options"""
 		if question:
 			max_options = 10
-			max_wait_time = 1440 #Max time for bot to post results. 1440 is 1 day.
+			max_wait_time = 86400 #Max time for bot to post results. 86400 is 1 day.
 
 			prompt1 = await self.bot.say("Give me the poll options. Enter x when you're done.")
 			reply = await self.bot.wait_for_message(timeout = max_wait_time, author = ctx.message.author, channel=ctx.message.channel)
@@ -486,7 +742,6 @@ class commands:
 			print("Problem deleteing message.")
 			print(e)
 		return wait
-
 
 	@commands.command(pass_context = True)
 	async def roll(self, ctx, *, bounds : str = None):
